@@ -2,18 +2,8 @@ open Core_kernel.Std
 open Bap.Std
 open Program_visitor
 
-module FuncId = struct
-  type t = string
-  let compare = compare
-  let equal = (=)
-  let hash = Hashtbl.hash
-end
-
 module CallSite = struct
-  type t = addr
-  let compare = Addr.compare
-  let equal = (=)
-  let hash = Hashtbl.hash
+  include Addr
   let default = Addr.zero 0 (* Should never be used *)
 end
 
