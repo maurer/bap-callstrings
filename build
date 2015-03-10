@@ -1,1 +1,5 @@
-ocamlbuild -pkg ounit test.native
+#!/bin/sh
+ocamlbuild \
+    -pkg ounit \
+    -pkg core_kernel \
+    run.native
