@@ -17,6 +17,7 @@ module CallSite = struct
   let default = Addr.zero 0 (* Should never be used *)
 end
 
+(* Address Call Sensitivity Graph *)
 module ACSG = struct
   module G = Graph.Persistent.Digraph.ConcreteBidirectionalLabeled(Addr)(CallSite)
   include G
@@ -35,7 +36,7 @@ module ACSG = struct
                  (* Resolved jump or conditional jump in a call insn is assumed a call target *)
                  | `Block (tgt, `Jump)
                  | `Block (tgt, `Cond) ->
-                   add_call csg func_id (Block.addr tgt) (Memory.min_addr insn_mem) 
+                   add_call csg func_id (Block.addr tgt) (Memory.min_addr insn_mem)
                  (* Anything else is unresolved or a fallthrough, ignore it *)
                  | _ -> csg
              )
@@ -48,13 +49,25 @@ module ACSG = struct
     )
 end
 
-module LCSG(Label : Graph.Sig.COMPARABLE) = struct
+(* Label Call Sensitivity Graph *)
+module LCSG_Make(Label : Graph.Sig.COMPARABLE) = struct
   module G = Graph.Persistent.Digraph.ConcreteBidirectionalLabeled(Label)(CallSite)
   include G
+
+  let edge_attributes (_, c, _) =
+    [Graph.Graphviz.DotAttributes.(`Label (Addr.to_string c))]
+  let default_edge_attributes _ = []
+  let get_subgraph _ = None
+  let vertex_attributes _ = []
+  let vertex_name x = x
+  let default_vertex_attributes _ = []
+  let graph_attributes _ = []
+
+
   let of_acsg (acsg : ACSG.t) (xlat_tab : Label.t Table.t) : t =
     let xlat (addr : Addr.t) : Label.t option =
       Option.map ~f:snd @@ Table.find_addr xlat_tab addr
-    in 
+    in
     ACSG.fold_edges_e (fun (s, c, d) csg ->
       match (xlat s, xlat d) with
         | (Some s', Some d') -> G.add_edge_e csg (s', c, d')
@@ -64,3 +77,16 @@ module LCSG(Label : Graph.Sig.COMPARABLE) = struct
           | Some v' -> G.add_vertex csg v'
           | None -> csg) acsg G.empty
 end
+
+
+let main project =
+  let acsg = ACSG.of_project project in
+  let module LCSG = LCSG_Make(String) in
+  let lcsg = LCSG.of_acsg acsg project.symbols in
+  let module Dot = Graph.Graphviz.Dot(LCSG) in
+  Out_channel.with_file "graph.dot" ~f:(fun out ->
+    Dot.output_graph out lcsg
+  );
+  project
+
+let () = register main
