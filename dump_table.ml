@@ -9,7 +9,9 @@ let print_k_sensitive project =
   let acsg = ACSG.of_project project in
   let lcsg = LCSG.of_acsg acsg project.symbols in
   let k_sensitive = LCSG.to_table lcsg 2 in
-  print_endline @@ encode_calltable k_sensitive;
+  Out_channel.with_file "table.out" ~f:(fun oc ->
+    Out_channel.output_string oc @@ encode_calltable k_sensitive
+  );
   project;;
 
 register print_k_sensitive;;
