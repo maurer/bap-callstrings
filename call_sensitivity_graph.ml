@@ -49,6 +49,10 @@ end
 
 module Calltable = String.Table
 
+type kcs = (addr * string) list list with sexp
+let encode_calltable tab = Sexp.to_string (String.Table.sexp_of_t sexp_of_kcs tab)
+let decode_calltable str = String.Table.t_of_sexp kcs_of_sexp @@ Sexp.of_string str
+
 (* Label Call Sensitivity Graph *)
 module LCSG = struct
   module G = Graph.Persistent.Digraph.ConcreteBidirectionalLabeled(String)(CallSite)
@@ -78,7 +82,6 @@ module LCSG = struct
         match xlat v with
           | Some v' -> G.add_vertex csg v'
           | None -> csg) acsg G.empty
-
   let to_table (lcsg : t) (k : int) : (addr * string) list list Calltable.t =
     let rec step_down k v : (addr * string) list list =
       if (k = 0) || (0 = G.in_degree lcsg v) then [[]]
