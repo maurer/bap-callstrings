@@ -3,7 +3,6 @@ open Bap.Std
 open Program_visitor
 open Call_sensitivity_graph
 
-module LCSG    = LCSG_Make(String)
 module DotLCSG = Graph.Graphviz.Dot(LCSG)
 
 let print_lcfg project =
