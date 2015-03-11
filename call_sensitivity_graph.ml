@@ -53,7 +53,9 @@ module Calltable = String.Table
 module LCSG = struct
   module G = Graph.Persistent.Digraph.ConcreteBidirectionalLabeled(String)(CallSite)
   include G
-
+  let add_call (csg : t) (caller : string) (callee : string) (site : CallSite.t) : t =
+    G.add_edge_e (G.add_vertex (G.add_vertex csg caller) callee) (caller, site, callee)
+ 
   let edge_attributes (_, c, _) =
     [Graph.Graphviz.DotAttributes.(`Label (Addr.to_string c))]
   let default_edge_attributes _ = []
