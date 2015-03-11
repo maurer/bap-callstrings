@@ -59,7 +59,7 @@ module LCSG = struct
   include G
   let add_call (csg : t) (caller : string) (callee : string) (site : CallSite.t) : t =
     G.add_edge_e (G.add_vertex (G.add_vertex csg caller) callee) (caller, site, callee)
- 
+
   let edge_attributes (_, c, _) =
     [Graph.Graphviz.DotAttributes.(`Label (Addr.to_string c))]
   let default_edge_attributes _ = []
@@ -96,6 +96,19 @@ module LCSG = struct
       Calltable.add_exn table ~key:(vertex_name v) ~data:(step_down k v)
     ) lcsg;
     table
+
+  let of_table (filename : string) : t =
+    (* let table = readin filename in *)
+    let ic = In_channel.create filename in
+    let table = decode_calltable (In_channel.input_all ic) in
+    (* let table = Calltable.create () in *)
+    Calltable.fold table ~init:G.empty
+      ~f:(fun ~key:(leaf : string) ~data:(ll : (addr * string) list list) g ->
+        List.fold ll ~init:g ~f:(fun g' (l : (addr * string) list) ->
+          let gg, _ = List.fold l ~init:(g', leaf) ~f:(fun (t, callee) (site, caller) ->
+            (add_call t caller callee site), caller) in
+          gg))
+
 end
 
 module Tree = struct
@@ -159,5 +172,4 @@ module Tree = struct
   let vertex_name (_,n) = string_of_int n
   let default_vertex_attributes _ = []
   let graph_attributes _ = []
-
 end
