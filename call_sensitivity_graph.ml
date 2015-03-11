@@ -39,9 +39,18 @@ module ACSG = struct
     )
 end
 
+(*
+module Calltable = struct
+  include String.Table
+  type t = (addr * string) list list String.Table.t
+end
+*)
+
+module Calltable = String.Table
+
 (* Label Call Sensitivity Graph *)
-module LCSG_Make(Label : Graph.Sig.COMPARABLE) = struct
-  module G = Graph.Persistent.Digraph.ConcreteBidirectionalLabeled(Label)(CallSite)
+module LCSG = struct
+  module G = Graph.Persistent.Digraph.ConcreteBidirectionalLabeled(String)(CallSite)
   include G
 
   let edge_attributes (_, c, _) =
@@ -54,8 +63,8 @@ module LCSG_Make(Label : Graph.Sig.COMPARABLE) = struct
   let graph_attributes _ = []
 
 
-  let of_acsg (acsg : ACSG.t) (xlat_tab : Label.t Table.t) : t =
-    let xlat (addr : Addr.t) : Label.t option =
+  let of_acsg (acsg : ACSG.t) (xlat_tab : String.t Table.t) : t =
+    let xlat (addr : Addr.t) : String.t option =
       Option.map ~f:snd @@ Table.find_addr xlat_tab addr
     in
     ACSG.fold_edges_e (fun (s, c, d) csg ->
@@ -66,12 +75,26 @@ module LCSG_Make(Label : Graph.Sig.COMPARABLE) = struct
         match xlat v with
           | Some v' -> G.add_vertex csg v'
           | None -> csg) acsg G.empty
+
+  let to_table (lcsg : t) (k : int) : (addr * string) list list Calltable.t =
+    let rec step_down k v : (addr * string) list list =
+      if k = 0 then []
+      else
+        G.fold_succ_e (fun (_, l, d) acc ->
+          List.rev_append
+            (List.map (step_down (k - 1) d) ~f:(fun p -> (l, d) :: p)) acc
+        ) lcsg v []
+    in
+    let table = Calltable.create () in
+    G.iter_vertex (fun v ->
+      Calltable.add_exn table ~key:(vertex_name v) ~data:(step_down k v)
+    ) lcsg;
+    table
 end
 
 
 let main project =
   let acsg = ACSG.of_project project in
-  let module LCSG = LCSG_Make(String) in
   let lcsg = LCSG.of_acsg acsg project.symbols in
   let module Dot = Graph.Graphviz.Dot(LCSG) in
   Out_channel.with_file "graph.dot" ~f:(fun out ->
