@@ -1,5 +1,14 @@
-#!/bin/sh
-ocamlbuild \
-    -pkg ounit \
-    -pkg core_kernel \
-    run.native
+!/bin/bash
+
+plugin=$1
+testbin=$2
+
+bapbuild -pkg ocamlgraph $plugin
+
+bapbuild -pkg ocamlgraph dump_table
+bap-objdump $test_bin -l dump_table
+
+table_filename=table.out bap-objdump test/fgr.out -l $plugin
+# table_filename=table.out table_root=g bap-objdump test/fgr.out -l $plugin
+dot graph.dot -Tpng -o graph.png
+open graph.png
