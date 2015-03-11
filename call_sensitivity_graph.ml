@@ -1,4 +1,5 @@
 open Core_kernel.Std
+open Sexplib.Std
 open Bap.Std
 open Program_visitor
 
@@ -92,14 +93,58 @@ module LCSG = struct
     table
 end
 
+module Tree = struct
+  type call = string * Addr.t with sexp
+  module Node = struct
+    module L = struct
+      type t = E of call
+             | T of call
+             | R of (call * string)
+             | Intermediate of call
+             | Root of string
+      with sexp
+    end
+    type l = L.t
+    type t = (l * int)
+    let alloc = ref 0
+    let fresh (l : l) : t =
+      alloc := !alloc + 1;
+      (l, !alloc)
+    let compare = compare
+    let hash = Hashtbl.hash
+    let equal = (=)
+  end
+  module G = Graph.Persistent.Digraph.ConcreteBidirectional(Node)
+  include G
+  let rec make_tree (lcsg : LCSG.t) (root : string) (t : t) (prefix : string list) : (t * G.V.t list) =
+    let open Node in
+    LCSG.fold_succ_e (fun (_, c, d) (t, vs) ->
+      (* If the out degree is 0, it is a terminal node *)
+      if ((LCSG.out_degree lcsg d) = 0)
+        then let v = fresh @@ L.T(d, c) in
+             (G.add_vertex t v, v::vs)
+      (* If the a function the target calls is already on the stack, it is recursive *)
+      else match List.find (LCSG.succ lcsg d) ~f:(List.mem prefix) with
+             | Some r -> let v = fresh @@ L.R((d, c), r) in
+                         (G.add_vertex t v, v::vs)
+             | None ->
+      (* It must be an intermediate node *)
+      let (t', sub_vs) = make_tree lcsg d t (d::prefix) in
+      let v = fresh @@ L.Intermediate(d, c) in
+      (List.fold_left sub_vs ~f:(fun t v2 -> G.add_edge t v v2) ~init:(G.add_vertex t' v), v::vs)
+    ) lcsg root (t, [])
+  let of_lcsg (lcsg : LCSG.t) (root : string) : t =
+    let (t, vs) = make_tree lcsg root (G.empty) [root] in
+    let v = Node.fresh @@ Node.L.Root(root) in
+    List.fold_left vs ~f:(fun t v2 -> G.add_edge t v v2) ~init:(G.add_vertex t v)
+  module TS = Sexpable.To_stringable(Node.L)
+  let edge_attributes _ = []
+  let default_edge_attributes _ = []
+  let get_subgraph _ = None
+  let vertex_attributes (x,_) = [`Label(TS.to_string x)]
+  let vertex_name (_,n) = string_of_int n
+  let default_vertex_attributes _ = []
+  let graph_attributes _ = []
 
-let main project =
-  let acsg = ACSG.of_project project in
-  let lcsg = LCSG.of_acsg acsg project.symbols in
-  let module Dot = Graph.Graphviz.Dot(LCSG) in
-  Out_channel.with_file "graph.dot" ~f:(fun out ->
-    Dot.output_graph out lcsg
-  );
-  project
 
-let () = register main
+end
