@@ -4,7 +4,7 @@
 #define DDDD(x) DDD(DDD(x))
 #define mf(f, g) \
 void f(){\
-  DDDD(g();)\
+  DDD(g();)\
 }
 
 mf(a, b)
