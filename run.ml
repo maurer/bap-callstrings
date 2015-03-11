@@ -1,49 +1,59 @@
 (** A tool to automate testing  *)
 open Core_kernel.Std
 open OUnit2
-
+(* module C = Call_sensitivity_graph *)
 type 'a task = {
   name : string;
-  read : Sexp.t -> 'a;
+  env : string Array.t;
+  output : string
 }
 
-let output_of_task task = task.name ^ ".scm"
-
-let read_kstring _  = failwith "parse k-string"
-let read_astring _  = failwith "parse a-string"
-let read_treenode _ = failwith "parse a node"
-
-let kstrings = {
-  name = "kstrings";
-  read = read_kstring;
+(* let read_tree x = failwith "read the ground truth tree"
+let read_table chan = C.decode_calltable @@ In_channal.input_all chan
+*)
+let print_tree = {
+  name = "print_tree";
+  output = "test/fgr.tree";
+  env = [||]
 }
 
-let astrings = {
-  name = "astrings";
-  read = read_astring;
+let print_k_sensitivity_table = {
+  name = "print_k_sensitivity_table";
+  env = [|"k=2"|];
+  output = "test/fgr.ktable"
 }
 
-let csforest = {
-  name = "csforest";
-  read = read_treenode;
+let table2tree = {
+  name = "table2tree";
+  env = [|"table_filename=table.out"; "table_root=main"|];
+  output = "test/fgr.tabletree"
 }
+
+(*
+let check_tree gt res = assert_equal ~cmp:(fun x y -> x = y) pread "diff %s %s" gt res
+let check_table gt res = assert_equal ~cmp:cmp_table gt res
+*)
+(* TODO: Add check *)
+let check a b = assert_equal ~cmp:(fun a b -> true) a b
 
 (** [run task check input ctxt] run test for a given task on a the
     [input] file and apply [check] to verify the output *)
-let run task check input ctxt : unit =
-  let output = output_of_task task in
-  assert_command  ~ctxt "bap-objdump" [input; "-l"; task.name];
-  In_channel.with_file output ~f:(fun chan ->
-      Sexp.scan_sexps  (Lexing.from_channel chan)  |>
-      List.map ~f:task.read |>  check)
+let run task check input gt ctxt : unit =
+  let output = task.output in
+  assert_command ~env:(Array.append task.env @@ Unix.environment ()) ~ctxt "bap-objdump" [input; "-l"; task.name];
+  check task.output gt
 
 (** {3 Actual testing}  *)
 
-let dummy data = todo "test data"
-
 let suite = "BAP Fun" >::: [
-    "csforest" >::: [
-      "dummy" >:: run kstrings dummy "filename"
+    "print_tree" >::: [
+      "fgr.out" >:: run print_tree check "test/fgr.out" "test/fgr.tree"
+    ];
+    "print_k_sensitivity_table" >::: [
+      "fgr.out" >:: run print_k_sensitivity_table check "test/fgr.out" "test/fgr.ktable"
+    ];
+    "table2tree" >::: [
+      "fgr.out" >:: run table2tree check "test/fgr.out" "test/fgr.tabletree"
     ]
   ]
 
