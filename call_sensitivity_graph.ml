@@ -103,6 +103,15 @@ module Tree = struct
              | Intermediate of call
              | Root of string
       with sexp
+
+      let call_to_string (f, addr) =
+        Printf.sprintf "%s:%s" f @@ Addr.to_string addr
+      let to_string = function
+        | E c -> Printf.sprintf "E(%s)" @@ call_to_string c
+        | T c -> Printf.sprintf "T(%s)" @@ call_to_string c
+        | R (c, f) -> Printf.sprintf "R(%s, %s)" (call_to_string c) f
+        | Intermediate c -> Printf.sprintf "%s" @@ call_to_string c
+        | Root f -> f
     end
     type l = L.t
     type t = (l * int)
@@ -141,10 +150,9 @@ module Tree = struct
   let edge_attributes _ = []
   let default_edge_attributes _ = []
   let get_subgraph _ = None
-  let vertex_attributes (x,_) = [`Label(TS.to_string x)]
+  let vertex_attributes (x,_) = [`Label(Node.L.to_string x)]
   let vertex_name (_,n) = string_of_int n
   let default_vertex_attributes _ = []
   let graph_attributes _ = []
-
 
 end
