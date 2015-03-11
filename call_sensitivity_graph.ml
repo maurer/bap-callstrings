@@ -78,11 +78,11 @@ module LCSG = struct
 
   let to_table (lcsg : t) (k : int) : (addr * string) list list Calltable.t =
     let rec step_down k v : (addr * string) list list =
-      if k = 0 then []
+      if (k = 0) || (0 = G.in_degree lcsg v) then [[]]
       else
-        G.fold_succ_e (fun (_, l, d) acc ->
+        G.fold_pred_e (fun (s, l, _) acc ->
           List.rev_append
-            (List.map (step_down (k - 1) d) ~f:(fun p -> (l, d) :: p)) acc
+            (List.map (step_down (k - 1) s) ~f:(fun p -> (l, s) :: p)) acc
         ) lcsg v []
     in
     let table = Calltable.create () in
