@@ -1,5 +1,7 @@
 main
+
 f
 main
+
 g
-f g
+main f
