@@ -1,49 +1,61 @@
 (** A tool to automate testing  *)
 open Core_kernel.Std
 open OUnit2
-(* module C = Call_sensitivity_graph *)
 type 'a task = {
   name : string;
   env : string Array.t;
-  output : string
+  output : string;
+  dumptbl : bool;
+  stdout : bool
 }
 
-(* let read_tree x = failwith "read the ground truth tree"
-let read_table chan = C.decode_calltable @@ In_channal.input_all chan
-*)
 let print_tree = {
   name = "print_tree";
-  output = "test/fgr.tree";
-  env = [||]
+  output = "graph.dot";
+  env = [||];
+  dumptbl = false;
+  stdout = false;
 }
 
 let print_k_sensitivity_table = {
   name = "print_k_sensitivity_table";
   env = [|"k=2"|];
-  output = "test/fgr.ktable"
+  output = "test/fgr.ktable";
+  dumptbl = false;
+  stdout = true;
 }
 
 let table2tree = {
   name = "table2tree";
-  env = [|"table_filename=table.out"; "table_root=main"|];
-  output = "test/fgr.tabletree"
+  env = [|"k=2"; "table_filename=table.out"; "table_root=main"|];
+  output = "graph.dot";
+  dumptbl = true;
+  stdout = false;
 }
 
-(*
-let check_tree gt res = assert_equal ~cmp:(fun x y -> x = y) pread "diff %s %s" gt res
-let check_table gt res = assert_equal ~cmp:cmp_table gt res
-*)
-(* TODO: Add check *)
-let check a b = assert_equal ~cmp:(fun a b -> true) a b
+let check a b = assert_equal ~cmp:(fun a b ->
+  let cmd = Printf.sprintf "diff %s %s" a b in
+  let inp = Unix.open_process_in cmd in
+  let r = In_channel.input_all inp in
+  r = ""
+) a b
 
 (** [run task check input ctxt] run test for a given task on a the
     [input] file and apply [check] to verify the output *)
 let run task check input gt ctxt : unit =
-  let output = task.output in
-  assert_command ~env:(Array.append task.env @@ Unix.environment ()) ~ctxt "bap-objdump" [input; "-l"; task.name];
+  (if task.dumptbl then
+    assert_command
+      ~env:(Array.append task.env @@ Unix.environment ())
+      ~ctxt
+      "bap-objdump" [input; "-l"; "dump_table"]);
+  assert_command
+    ~foutput:(fun c_stream -> if task.stdout then
+      Out_channel.with_file task.output ~f:(fun oc ->
+        Stream.iter (Out_channel.output_char oc) c_stream; Out_channel.close oc))
+    ~env:(Array.append task.env @@ Unix.environment ())
+    ~ctxt
+    "bap-objdump" [input; "-l"; task.name];
   check task.output gt
-
-(** {3 Actual testing}  *)
 
 let suite = "BAP Fun" >::: [
     "print_tree" >::: [
