@@ -1,5 +1,0 @@
-To test table2tree:
-
-```
-table_root=f ./build table2tree test_bin
-```
