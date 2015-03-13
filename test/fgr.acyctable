@@ -1,0 +1,9 @@
+File                : test/fgr.out
+Arch                : x86_64
+Entry               : 0x400400:64
+Function main:
+----------------
+Function g,f:
+0x40051D:64	:	main
+----------------
+Found 3 symbols

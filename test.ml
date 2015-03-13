@@ -17,17 +17,25 @@ let print_tree = {
   stdout = false;
 }
 
-let print_k_sensitivity_table = {
-  name = "print_k_sensitivity_table";
+let print_acyc_table = {
+  name = "print_acyc_table";
+  env = [||];
+  output = "/tmp/fgr.acyctable";
+  dumptbl = false;
+  stdout = true;
+}
+
+let print_k_table = {
+  name = "print_k_table";
   env = [|"k=2"|];
-  output = "test/fgr.ktable";
+  output = "/tmp/fgr.ktable";
   dumptbl = false;
   stdout = true;
 }
 
 let table2tree = {
   name = "table2tree";
-  env = [|"k=2"; "table_filename=test/table.out"; "table_root=main"|];
+  env = [|"k=2"; "table_filename=table.out"; "table_root=main"|];
   output = "graph.dot";
   dumptbl = true;
   stdout = false;
@@ -47,7 +55,7 @@ let run task check input gt ctxt : unit =
     assert_command
       ~env:(Array.append task.env @@ Unix.environment ())
       ~ctxt
-      "bap-objdump" [input; "-l"; "dump_table"]);
+      "bap-objdump" [input; "-l"; "dump_k_table"]);
   assert_command
     ~foutput:(fun c_stream -> if task.stdout then
       Out_channel.with_file task.output ~f:(fun oc ->
@@ -61,11 +69,14 @@ let suite = "BAP Fun" >::: [
     "print_tree" >::: [
       "fgr.out" >:: run print_tree check "test/fgr.out" "test/fgr.tree"
     ];
-    "print_k_sensitivity_table" >::: [
-      "fgr.out" >:: run print_k_sensitivity_table check "test/fgr.out" "test/fgr.ktable"
+    "print_k_table" >::: [
+      "fgr.out" >:: run print_k_table check "test/fgr.out" "test/fgr.ktable"
     ];
     "table2tree" >::: [
       "fgr.out" >:: run table2tree check "test/fgr.out" "test/fgr.tabletree"
+    ];
+    "print_acyc_table" >::: [
+      "fgr.out" >:: run print_acyc_table check "test/fgr.out" "test/fgr.acyctable"
     ]
   ]
 
