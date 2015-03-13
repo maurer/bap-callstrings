@@ -5,7 +5,7 @@ open Program_visitor
 
 module CallSite = struct
   include Addr
-  let default = Addr.zero 0 (* Should never be used *)
+  let default = Addr.zero 0
 end
 
 (* Address Call Sensitivity Graph *)
@@ -101,18 +101,18 @@ module LCSG = struct
                   (add_edge_e t (caller, site, callee), caller)) in
               gg))
 
+  module SCC = Graph.Components.Make(G)
+  module C   = Graph.Contraction.Make(G)
+  let contract (lcsg : t) : t =
+    let names = Array.map (SCC.scc_array lcsg) ~f:(String.concat ~sep:",") in
+    let (_, numbering) = SCC.scc lcsg in
+    let lcsg' = C.contract (fun (s, _, d) -> numbering s = numbering d) lcsg in
+    map_vertex (fun x -> names.(numbering x)) lcsg'
 end
 
 module Tree = struct
   module Node = struct
-    module L = struct
-      type call = string * Addr.t with sexp
-      type t = E of call
-             | T of call
-             | R of (call * string)
-             | Intermediate of call
-             | Root of string
-      with sexp
+    module L = struct type call = string * Addr.t with sexp type t = E of call | T of call | R of (call * string) | Intermediate of call | Root of string with sexp
 
       let call_to_string (f, addr) =
         Printf.sprintf "%s:%s" f @@ Addr.to_string addr
